@@ -28,7 +28,7 @@ public:
             rcl_action_server_get_default_options(),
             cb_group_
             );
-        optical_client_ = node->create_client<PickTarget>("pick_target",rclcpp::ServicesQoS().get_rmw_qos_profile(), cb_group_);
+        optical_client_ = node->create_client<PickTarget>("pick_target",rclcpp::ServicesQoS(), cb_group_);
         arm_ = std::make_shared<MoveGroupInterface>(node_,"arm");
         gripper_  = std::make_shared<MoveGroupInterface>(node_,"gripper");
         arm_->setMaxVelocityScalingFactor(0.3);
@@ -59,6 +59,7 @@ private:
 
     rclcpp_action::CancelResponse cancel_callback(const std::shared_ptr<ControllerGoalHandle> goal_handle)
     {
+        (void)goal_handle;
         RCLCPP_INFO(node_->get_logger(),"Received a cancel request");
         return rclcpp_action::CancelResponse::ACCEPT;
     }
@@ -119,32 +120,42 @@ private:
         RCLCPP_INFO(node_->get_logger(), "Sending request for color: %s", color.c_str());
 
         optical_client_->async_send_request(request, 
-            [this, goal_handle](rclcpp::Client<PickTarget>::SharedFuture future) {
-                
-                auto response = future.get();
+                [this, goal_handle](rclcpp::Client<PickTarget>::SharedFuture future) {
+                    
+                    auto response = future.get();
 
-                if (response->success) {
-                    this->found_target(response);
+                    if (response->success) {
+                        this->found_target(response);
 
-                    auto result = std::make_shared<Controller::Result>();
-                    goal_handle->succeed(result);
-                } else {
-                    auto result = std::make_shared<Controller::Result>();
-                    goal_handle->abort(result);
+                        auto result = std::make_shared<Controller::Result>();
+                        result->result_x = response->x;
+                        result->result_y = response->y; 
+                        result->msg = "The cube placed at x= " + std::to_string(response->x) 
+                                    + ", y= " + std::to_string(response->y);
+                        goal_handle->succeed(result);
+                    } else {
+                        auto result = std::make_shared<Controller::Result>();
+                        goal_handle->abort(result);
+                    }
+
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    if (response->success) {
+                        stack_height_ += response->grasp_width+0.015;
+                    }
+                    busy_ = false;
                 }
-                std::lock_guard<std::mutex> lock(mutex_);
-                busy_ = false;
-            }
-        );
+            );
     }
 
     void found_target(const std::shared_ptr<PickTarget::Response> target) 
     {   
         if(target->success){
+            double grasp_width = target->grasp_width;
+            double cube_height = target->grasp_width;
+
             tf2::Quaternion q;
             q.setRPY(target->roll, target->pitch, target->yaw);
             q = q.normalize();
-
             geometry_msgs::msg::PoseStamped target_pose;
             target_pose.header.frame_id = "base_link";
             target_pose.pose.position.x = target->x;
@@ -157,7 +168,11 @@ private:
             arm_->setStartStateToCurrentState();
             arm_->setPoseTarget(target_pose);
             plan_and_execute(arm_);
-            cartesian_path(target);
+            cartesian_down(cartesian_down_);
+            open_gripper(grasp_width);
+            rclcpp::sleep_for(std::chrono::seconds(1));
+            cartesian_up(cartesian_up_);
+            stack_cubes(grasp_width, cube_height);
         }
     }
 
@@ -173,41 +188,27 @@ private:
         }
     }
 
-    void cartesian_path(const std::shared_ptr<PickTarget::Response> target)
-    {
-        double fraction;
-        double target_width = target->grasp_width;
-        std::vector<geometry_msgs::msg::Pose> waypoints_down;
-        std::vector<geometry_msgs::msg::Pose> waypoints_up;
-        moveit_msgs::msg::RobotTrajectory trajectory;
-        
-        geometry_msgs::msg::Pose pose1 = arm_->getCurrentPose().pose;
-        pose1.position.z += -0.09;
-        waypoints_down.push_back(pose1);
-        fraction = arm_->computeCartesianPath(waypoints_down, 0.01, trajectory);
-        
-        if(fraction > 0.95){
-            arm_->execute(trajectory);
-        }
-
-        close_gripper(target_width);
-        rclcpp::sleep_for(std::chrono::seconds(1));
-
-        geometry_msgs::msg::Pose pose2 = pose1;
-        pose2.position.z += 0.09;
-        waypoints_up.push_back(pose2);
-
-        fraction = arm_->computeCartesianPath(waypoints_up, 0.01, trajectory);
-        
-        if(fraction > 0.95){
-            arm_->execute(trajectory);
-        }
-
-        stack_cubes();
-        close_gripper(0.12);
+    void cartesian_down(double distance)
+{
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+    moveit_msgs::msg::RobotTrajectory trajectory;
+    
+    geometry_msgs::msg::Pose pose = arm_->getCurrentPose().pose;
+    pose.position.z += distance;
+    waypoints.push_back(pose);
+    
+    double fraction = arm_->computeCartesianPath(waypoints, 0.01, trajectory);
+    if (fraction > 0.95) {
+        arm_->execute(trajectory);
     }
+}
 
-    void stack_cubes()
+void cartesian_up(double distance)
+{
+    cartesian_down(distance);
+}
+
+    void stack_cubes(double grasp_width, double cube_height)
     {
         tf2::Quaternion q;
         q.setRPY(3.14, 0.0, 0.0);
@@ -216,16 +217,20 @@ private:
         target_pose.header.frame_id = "base_link";
         target_pose.pose.position.x = -0.4;
         target_pose.pose.position.y = -0.5;
-        target_pose.pose.position.z = 0.23;
+        target_pose.pose.position.z = stack_height_;
         target_pose.pose.orientation.x = q.x();
         target_pose.pose.orientation.y = q.y();
         target_pose.pose.orientation.z = q.z();
         target_pose.pose.orientation.w = q.w();
         arm_->setPoseTarget(target_pose);
         plan_and_execute(arm_);
+        cartesian_down(-cube_height - 0.03);
+        rclcpp::sleep_for(std::chrono::seconds(1));
+        open_gripper(grasp_width + 0.1);
+        cartesian_up(cube_height + 0.03);
     }
 
-    void close_gripper(double total_width)
+    void open_gripper(double total_width)
     {
         double finger_pos = 0.06 - total_width/2;
         std::vector<double> joint_values;
@@ -239,8 +244,11 @@ private:
 
 
 
-    std::shared_ptr<rclcpp::Node> node_;
+    double cartesian_down_ = -0.09;
+    double cartesian_up_ = 0.09;
+    double stack_height_ = 0.165;
     bool busy_ = false;
+    std::shared_ptr<rclcpp::Node> node_;
     std::set<std::string> colors_ = {"blue", "red", "green"};
     std::shared_ptr<MoveGroupInterface> arm_;
     std::shared_ptr<MoveGroupInterface> gripper_;

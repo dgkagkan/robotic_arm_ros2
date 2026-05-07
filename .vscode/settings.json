@@ -1,0 +1,12 @@
+{
+    "ROS2.distro": "jazzy",
+    "python.autoComplete.extraPaths": [
+        "/home/dimitris-gkagkanakis/robotic_arm_ws/install/robotic_arm_interfaces/lib/python3.12/site-packages",
+        "/home/dimitris-gkagkanakis/prototype_ws/install/nav_bridge_py/lib/python3.12/site-packages",
+        "/home/dimitris-gkagkanakis/prototype_ws/install/my_robot_interfaces/lib/python3.12/site-packages",
+        "/home/dimitris-gkagkanakis/ros2_ws/install/my_robot_interfaces/lib/python3.12/site-packages",
+        "/home/dimitris-gkagkanakis/ros2_ws/install/lifecycle_py/lib/python3.12/site-packages",
+        "/home/dimitris-gkagkanakis/ros2_ws/install/components_py/lib/python3.12/site-packages",
+        "/opt/ros/jazzy/lib/python3.12/site-packages"
+    ]
+}

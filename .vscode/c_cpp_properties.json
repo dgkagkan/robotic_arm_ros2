@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/dimitris-gkagkanakis/robotic_arm_ws/install/robotic_arm_interfaces/include/**",
+        "/home/dimitris-gkagkanakis/prototype_ws/install/my_robot_interfaces/include/**",
+        "/home/dimitris-gkagkanakis/turtlebot3_ws/install/turtlebot3_gazebo/include/**",
+        "/home/dimitris-gkagkanakis/turtlebot3_ws/install/turtlebot3_fake_node/include/**",
+        "/home/dimitris-gkagkanakis/ros2_ws/install/my_robot_interfaces/include/**",
+        "/opt/ros/jazzy/include/**",
+        "/home/dimitris-gkagkanakis/robotic_arm_ws/src/robotic_arm_commander/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}

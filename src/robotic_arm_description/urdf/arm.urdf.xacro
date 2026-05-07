@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<robot name="robotic_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:include filename="common_properties.xacro"/>
+    <xacro:include filename="arm.xacro"/>
+    <xacro:include filename="gripper.xacro"/>
+    <xacro:include filename="robotic_arm.ros2_control.xacro" />
+    <xacro:include filename="camera.xacro" /> 
+    <!-- for gazebo-->
+     <gazebo>
+        <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+            <!-- Διαδρομή προς το αρχείο των controllers σου -->
+            <parameters>$(find robotic_arm_bringup)/config/ros2_controllers.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+    <!-- joint gripper with hand-->
+
+    <joint name="tool_gripper" type="fixed">
+        <parent link="tool_link"/>
+        <child link="gripper_base_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- joint with camera-->
+     <joint name="base_camera_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="camera_link"/>
+        <origin xyz="0.0 -0.7 2.0" rpy="0 1.57 0"/>
+     </joint>
+
+
+</robot>

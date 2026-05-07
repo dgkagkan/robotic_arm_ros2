@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+
+
+    <!-- =============================links=================================-->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="${arm_base_length} ${arm_base_width} ${arm_base_height}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${arm_base_length} ${arm_base_width} ${arm_base_height}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="5.0" x="${arm_base_length}" y="${arm_base_width}" z="${arm_base_height}" 
+                            o_xyz="0 0 0" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="shoulder_link" >
+        <visual>
+            <geometry>
+                <cylinder length="${shoulder_length}" radius="${shoulder_radius}"/>
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/2}" rpy="0 0 0" />
+            <material name="orange"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius*2} ${shoulder_radius*2} ${shoulder_length}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/2}" rpy="0 0 0"/>
+        </collision>
+        <xacro:cylinder_inertia m="0.5" r="${shoulder_radius}" length="${shoulder_length}"
+                                o_xyz="0 0 ${shoulder_length/2}" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="arm_link">
+        <visual>
+            <geometry>
+                <cylinder length="${shoulder_length/0.8}" radius="${shoulder_radius/2}"/>
+            </geometry>
+            <origin xyz="0 0 ${(shoulder_length/0.8)/2}" rpy="0 0 0" />
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius} ${shoulder_radius} ${shoulder_length/0.8}" />
+            </geometry>
+            <origin xyz="0 0 ${(shoulder_length/0.8)/2}" rpy="0 0 0"/>
+        </collision>
+        <xacro:cylinder_inertia m="0.3" r="${shoulder_radius/2}" length="${shoulder_length/0.8}"
+                                o_xyz="0 0 ${(shoulder_length/0.8)/2}" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="elbow_link">
+        <visual>
+            <geometry>
+                <cylinder length="${shoulder_length/5}" radius="${shoulder_radius/2}"/>
+            </geometry>
+            <origin xyz="0 0 ${(shoulder_length/5)/2}" rpy="0 0 0" />
+            <material name="orange"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius} ${shoulder_radius} ${shoulder_length/5}" />
+            </geometry>
+            <origin xyz="0 0 ${(shoulder_length/5)/2}" rpy="0 0 0"/>
+        </collision>
+        <xacro:cylinder_inertia m="0.3" r="${shoulder_radius/2}" length="${shoulder_length/5}"
+                                o_xyz="0 0 ${(shoulder_length/5)/2}" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="forearm_link">
+        <visual>
+            <geometry>
+                <cylinder length="${shoulder_length}" radius="${shoulder_radius/2}"/>
+            </geometry>
+            <origin xyz="0 0 ${(shoulder_length)/2}" rpy="0 0 0" />
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius} ${shoulder_radius} ${shoulder_length}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/2}" rpy="0 0 0"/>
+        </collision>
+        <xacro:cylinder_inertia m="0.3" r="${shoulder_radius/2}" length="${shoulder_length}"
+                                o_xyz="0 0 ${shoulder_length/2}" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="wrist_link">
+        <visual>
+            <geometry>
+                <box size="${shoulder_radius} ${shoulder_radius} ${shoulder_length/10}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/20}" rpy="0 0 0"/>
+            <material name="orange"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius } ${shoulder_radius } ${shoulder_length/10}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/20}" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.1" x="${shoulder_radius}" y="${shoulder_radius}" z="${shoulder_length/10}"
+                           o_xyz="0 0 ${shoulder_length/20}" o_rpy="0 0 0"/>
+    </link>
+
+    <link name="hand_link">
+        <visual>
+            <geometry>
+                <box size="${shoulder_radius} ${shoulder_radius} ${shoulder_length/25}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/50}" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${shoulder_radius } ${shoulder_radius } ${shoulder_length/25}" />
+            </geometry>
+            <origin xyz="0 0 ${shoulder_length/50}" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.1" x="${shoulder_radius}" y="${shoulder_radius}" z="${shoulder_length/25}"
+                   o_xyz="0 0 ${shoulder_length/50}" o_rpy="0 0 0"/>
+    </link>
+    
+    <link name="tool_link"/>
+
+
+
+<!-- =============================Joints=================================-->
+
+    <joint name="base_shoulder_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="shoulder_link"/>
+        <origin xyz="0 0 ${arm_base_height/2}" rpy="0 0 ${3*pi/2}"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="1000.0" velocity="1.0" lower="${-pi}" upper="${pi}"/>
+    </joint>
+
+    <joint name="shoulder_arm_joint" type="revolute">
+        <parent link="shoulder_link"/>
+        <child link="arm_link"/>
+        <origin xyz="0 0 ${shoulder_length}" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="1000.0" velocity="1.0" lower="-0.2" upper="2.5"/>
+    </joint>
+
+    <joint name="arm_elbow_joint" type="revolute">
+        <parent link="arm_link"/>
+        <child link="elbow_link"/>
+        <origin xyz="0 0 ${shoulder_length/0.8}" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="1000.0" velocity="1.0" lower="-0.2" upper="2.5"/>
+    </joint>
+
+    <joint name="elbow_forearm_joint" type="revolute">
+        <parent link="elbow_link"/>
+        <child link="forearm_link"/>
+        <origin xyz="0 0 ${shoulder_length/5}" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="1000.0" velocity="1.0" lower="${-pi}" upper="${pi}"/>
+    </joint>
+
+    <joint name="forearm_wrist_joint" type="revolute">
+        <parent link="forearm_link"/>
+        <child link="wrist_link"/>
+        <origin xyz="0 0 ${shoulder_length}" rpy="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="1000.0" velocity="1.0" lower="${-pi/2}" upper="${pi/2}"/>
+    </joint>
+
+    <joint name="wrist_hand_joint" type="revolute">
+        <parent link="wrist_link"/>
+        <child link="hand_link"/>
+        <origin xyz="0 0 ${shoulder_length/10}" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="-3.14" upper="3.14" effort="100" velocity="3.14"/>
+    </joint>
+
+    <joint name="hand_tool_joint" type="fixed">
+        <parent link="hand_link"/>
+        <child link="tool_link"/>
+        <origin xyz="0 0 ${shoulder_length/25}" rpy="0 0 0"/>
+    </joint>
+
+</robot>

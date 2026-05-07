@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- COLORS-->
+    <material name="blue">
+        <color rgba="0 0 0.5 1" />
+    </material>
+
+    <material name="grey">
+        <color rgba="0.5 0.5 0.5 1" />
+    </material>
+
+    <material name="light_blue">
+        <color rgba="0 0 0.2 1" />
+    </material>
+
+    <material name="orange">
+        <color rgba="${255/255} ${108/255} ${10/255} 1.0" />
+    </material>
+
+    <material name="yellow">
+        <color rgba="1 1 0 1" />
+    </material>
+
+    <material name="dark_green">
+        <color rgba="0 0.4 0 1"/>
+    </material>
+
+    <material name="light_green">
+        <color rgba="0 0.6 0 1"/>
+    </material>
+    <!---======================DIEMENSTIONS========================-->
+
+    <!-- ROBOTIC BASE -->
+    <xacro:property name="arm_base_length" value="0.4"/>
+    <xacro:property name="arm_base_width" value="0.4"/>
+    <xacro:property name="arm_base_height" value="0.1"/>
+
+    <!-- SHOULDER LINK -->
+    <xacro:property name="shoulder_radius" value="0.1"/>
+    <xacro:property name="shoulder_length" value="0.5"/>
+
+    <!---======================INERTIA========================-->
+    
+    <xacro:macro name="box_inertia" params=" m x y z o_xyz o_rpy">
+        <inertial>
+            <mass value="${m}"/>
+            <origin xyz="${o_xyz}" rpy="${o_rpy}" />
+            <inertia ixx="${(m/12) * (y*y + z*z)}"  ixy="0" ixz="0"
+                     iyy="${(m/12) * (x*x + z*z)}"  iyz="0"
+                     izz="${(m/12) * (y*y + x*x)}"/>
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="cylinder_inertia" params="m r length o_xyz o_rpy">
+        <inertial>
+            <mass value="${m}"/>
+            <origin xyz="${o_xyz}" rpy="${o_rpy}"/>
+            <inertia ixx="${(m/12) * (3*(r*r) + (length*length))}"  ixy="0" ixz="0"
+                    iyy="${(m/12) * (3*(r*r) + (length*length))}"  iyz="0"
+                    izz="${(1/2) * m * (r*r)}"/>
+        </inertial>
+
+        
+    </xacro:macro>
+</robot>

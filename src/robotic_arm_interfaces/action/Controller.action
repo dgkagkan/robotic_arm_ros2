@@ -1,0 +1,11 @@
+#Goal
+string color
+---
+#Result
+float64 result_x
+float64 result_y
+string msg
+---
+#Feedback
+float64 current_x
+float64 current_y

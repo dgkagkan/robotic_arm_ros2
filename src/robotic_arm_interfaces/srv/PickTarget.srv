@@ -1,0 +1,16 @@
+string target_color
+---
+bool success
+
+#position if success == true
+float64 x
+float64 y
+float64 z
+
+#Orientation (for the end effector)
+float64 roll
+float64 pitch
+float64 yaw
+
+#Gripper Info
+float64 grasp_width

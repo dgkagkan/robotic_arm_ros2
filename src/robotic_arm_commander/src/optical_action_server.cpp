@@ -109,6 +109,7 @@ private:
 
     void execute_pick(std::string color, std::shared_ptr<ControllerGoalHandle> goal_handle)
     {
+        
         if (!optical_client_->wait_for_service(std::chrono::seconds(1))) {
             RCLCPP_ERROR(node_->get_logger(), "Vision Server not available!");
             return;
@@ -123,32 +124,59 @@ private:
                 [this, goal_handle](rclcpp::Client<PickTarget>::SharedFuture future) {
                     
                     auto response = future.get();
+                    bool was_canceled = false;
 
                     if (response->success) {
-                        this->found_target(response);
+                        this->found_target(response, goal_handle, was_canceled);
 
-                        auto result = std::make_shared<Controller::Result>();
-                        result->result_x = response->x;
-                        result->result_y = response->y; 
-                        result->msg = "The cube placed at x= " + std::to_string(response->x) 
-                                    + ", y= " + std::to_string(response->y);
-                        goal_handle->succeed(result);
+                        if (was_canceled) {
+                            // ΝΕΟ — πρόσθεσε αυτό
+                            auto result = std::make_shared<Controller::Result>();
+                            result->msg = "Goal canceled";
+                            goal_handle->canceled(result);
+                        } else {
+                            auto result = std::make_shared<Controller::Result>();
+                            result->result_x = response->x;
+                            result->result_y = response->y; 
+                            result->msg = "The cube placed at x= " + std::to_string(response->x) 
+                                        + ", y= " + std::to_string(response->y);
+                            goal_handle->succeed(result);
+                        }
                     } else {
                         auto result = std::make_shared<Controller::Result>();
                         goal_handle->abort(result);
                     }
 
                     std::lock_guard<std::mutex> lock(mutex_);
-                    if (response->success) {
-                        stack_height_ += response->grasp_width+0.015;
+                    if (response->success && !was_canceled) {
+                        stack_height_ += response->grasp_width + 0.015;
                     }
                     busy_ = false;
                 }
             );
     }
 
-    void found_target(const std::shared_ptr<PickTarget::Response> target) 
+    void found_target(const std::shared_ptr<PickTarget::Response> target,
+                        const std::shared_ptr<ControllerGoalHandle> goal_handle,
+                            bool &was_canceled) 
     {   
+        was_canceled = false;
+        stop_monitor_ = false;
+
+        std::thread monitor([this, goal_handle, &was_canceled]() {
+            rclcpp::Rate rate(100);
+            while (rclcpp::ok() && !stop_monitor_) {
+                if (goal_handle->is_canceling()) {
+                    arm_->stop();
+                    gripper_->stop();
+                    stop_monitor_ = true;
+                    was_canceled = true;
+                    return;
+                }
+                rate.sleep();
+            }
+        });
+
         if(target->success){
             double grasp_width = target->grasp_width;
             double cube_height = target->grasp_width;
@@ -168,12 +196,20 @@ private:
             arm_->setStartStateToCurrentState();
             arm_->setPoseTarget(target_pose);
             plan_and_execute(arm_);
+            if(stop_monitor_){ monitor.join(); return;}
             cartesian_down(cartesian_down_);
+            if(stop_monitor_){ monitor.join(); return;}
             open_gripper(grasp_width);
+            if(stop_monitor_){ monitor.join(); return;}
             rclcpp::sleep_for(std::chrono::seconds(1));
+            if(stop_monitor_){  monitor.join(); return;}
             cartesian_up(cartesian_up_);
+            if(stop_monitor_){ monitor.join(); return;}
             stack_cubes(grasp_width, cube_height);
+            if(stop_monitor_){ monitor.join(); return;}
         }
+        stop_monitor_ = true;
+        monitor.join();
     }
 
     void plan_and_execute(const std::shared_ptr<MoveGroupInterface> &interface)
@@ -242,12 +278,25 @@ void cartesian_up(double distance)
 
     }
 
-
+    bool is_canceled(const std::shared_ptr<ControllerGoalHandle> &goal_handle)
+    {
+        if (goal_handle->is_canceling()) {
+            auto result = std::make_shared<Controller::Result>();
+            result->msg = "Goal canceled";
+            goal_handle->canceled(result);
+            RCLCPP_WARN(node_->get_logger(), "Goal canceled");
+            std::lock_guard<std::mutex> lock(mutex_);
+            busy_ = false;
+            return true;
+        }
+        return false;
+    }
 
     double cartesian_down_ = -0.09;
     double cartesian_up_ = 0.09;
     double stack_height_ = 0.165;
     bool busy_ = false;
+    std::atomic<bool> stop_monitor_{false};
     std::shared_ptr<rclcpp::Node> node_;
     std::set<std::string> colors_ = {"blue", "red", "green"};
     std::shared_ptr<MoveGroupInterface> arm_;

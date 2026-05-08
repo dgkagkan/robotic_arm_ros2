@@ -20,16 +20,21 @@ public:
         auto sub_options = rclcpp::SubscriptionOptions();
         sub_options.callback_group = callback_group_;
 
+        // Subscriber - λαμβάνει εικόνα από κάμερα
         image_sub_ = this->create_subscription<Image>(
             "/camera/image_raw",
             10,
-            std::bind(&PickTargetServerNode::camera_callback, this, _1),//<-------------afto
+            std::bind(&PickTargetServerNode::camera_callback, this, _1),
             sub_options
         );
+
+        // Publisher - δημοσιεύει debug εικόνα με bounding boxes
         debug_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
             "/camera/debug_image", 
             rclcpp::SensorDataQoS()
         );
+
+        // Service server - επιστρέφει θέση κύβου βάσει χρώματος
         optical_server_ = this->create_service<PickTarget>(
             "pick_target",
             std::bind(&PickTargetServerNode::callbackPickTarget, this, _1, _2),
@@ -40,6 +45,7 @@ public:
     
 private:
 
+    // Επεξεργασία κάθε frame - ανίχνευση χρωμάτων σε HSV
     void camera_callback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
         
@@ -48,24 +54,26 @@ private:
             cv::Mat hsv_frame;
             cv::cvtColor(frame, hsv_frame, cv::COLOR_BGR2HSV);
 
-
+            // Μπλε μάσκα
             cv::Mat blue_mask;
             cv::inRange(hsv_frame, cv::Scalar(100, 100, 100), cv::Scalar(130, 255, 255), blue_mask);
             process_color(blue_mask, frame, blue_x_, blue_y_, blue_yaw_, "blue");
 
-
+            // Κόκκινη μάσκα (δύο εύρη γιατί το κόκκινο τυλίγεται στο HSV)
             cv::Mat mask1, mask2, red_mask;
             cv::inRange(hsv_frame, cv::Scalar(0, 100, 100), cv::Scalar(10, 255, 255), mask1);
             cv::inRange(hsv_frame, cv::Scalar(160, 100, 100), cv::Scalar(180, 255, 255), mask2);
             cv::addWeighted(mask1, 1.0, mask2, 1.0, 0.0, red_mask);
             process_color(red_mask, frame, red_x_, red_y_, red_yaw_, "red");
 
+            // Πράσινη μάσκα
             cv::Mat green_mask;
             cv::inRange(hsv_frame, cv::Scalar(35, 100, 100), cv::Scalar(85, 255, 255), green_mask);
             process_color(green_mask, frame, green_x_, green_y_, green_yaw_, "green");
 
+            // Δημοσίευση debug εικόνας
             auto debug_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
-            debug_pub_->publish(*debug_msg);//<----------afto
+            debug_pub_->publish(*debug_msg);
 
             
         } catch (cv_bridge::Exception &e) {
@@ -73,8 +81,10 @@ private:
         }
     }
 
+    // Μετατροπή pixel σε μέτρα (pinhole camera model) και εύρεση yaw
     void process_color(cv::Mat mask, cv::Mat &output_frame, double &target_x, double &target_y, double &target_yaw, std::string color_name) 
     {
+        // Camera intrinsics
         const double fx = 381.36116;
         const double fy = 381.36114;
         const double cx_center = 320.0;
@@ -93,12 +103,15 @@ private:
                 cv::Point2f center = rotated_bbox.center;
                 float angle = rotated_bbox.angle;
 
+                // Yaw από rotated bounding box
                 double yaw_rad = angle * (M_PI / 180.0);
                 target_yaw = fmod(yaw_rad, M_PI_2);
 
+                // Pixel σε μέτρα
                 double x_m = (cx - cx_center) * Z_dist / fx;
                 double y_m = (cy - cy_center) * Z_dist / fy;
 
+                // Μετατροπή σε frame ρομπότ
                 target_x = -y_m;
                 target_y = -x_m + y_offset;
 
@@ -109,8 +122,7 @@ private:
         }
     }
 
-    
-
+    // Service callback - επιστρέφει θέση και orientation για το ζητούμενο χρώμα
     void callbackPickTarget(const PickTarget::Request::SharedPtr request,
                         const PickTarget::Response::SharedPtr response)
     {
@@ -137,6 +149,7 @@ private:
             return;
         }
 
+        // Σταθερές τιμές - pitch κάθετα, z ύψος, grasp_width πλάτος κύβου
         response->pitch = 3.14;
         response->z = 0.15;
         response->grasp_width = 0.025;
@@ -145,13 +158,14 @@ private:
                     request->target_color.c_str(), response->x, response->y);
     }
 
+    // Θέσεις κύβων - ενημερώνονται κάθε frame
     double blue_x_, blue_y_, blue_yaw_;
     double red_x_, red_y_, red_yaw_;
     double green_x_, green_y_,green_yaw_;
     rclcpp::CallbackGroup::SharedPtr callback_group_;
     rclcpp::Subscription<Image>::SharedPtr image_sub_;
     rclcpp::Service<PickTarget>::SharedPtr optical_server_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_pub_;//<------afto
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_pub_;
 };
     
 int main(int argc, char **argv)
@@ -160,7 +174,6 @@ int main(int argc, char **argv)
 
     auto node = std::make_shared<PickTargetServerNode>();
 
-    // μπορείς να το κρατήσεις
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);
     executor.spin();

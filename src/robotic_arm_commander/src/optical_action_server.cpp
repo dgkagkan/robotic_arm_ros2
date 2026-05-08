@@ -19,6 +19,8 @@ public:
         node_ = node;
         goal_queue_thread_ = std::thread(&OpticalActionServerNode::run_goal_queue_thread, this);
         cb_group_ = node->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
+        // Action server - δέχεται goals με χρώμα κύβου
         optical_action_server_ = rclcpp_action::create_server<Controller>(
             node_,
             "controller",
@@ -28,7 +30,11 @@ public:
             rcl_action_server_get_default_options(),
             cb_group_
             );
+
+        // Service client - ζητάει θέση κύβου από vision server
         optical_client_ = node->create_client<PickTarget>("pick_target",rclcpp::ServicesQoS(), cb_group_);
+
+        // MoveIt interfaces
         arm_ = std::make_shared<MoveGroupInterface>(node_,"arm");
         gripper_  = std::make_shared<MoveGroupInterface>(node_,"gripper");
         arm_->setMaxVelocityScalingFactor(0.3);
@@ -44,6 +50,7 @@ public:
 
 private:
 
+    // Αποδοχή ή απόρριψη goal βάσει χρώματος
     rclcpp_action::GoalResponse goal_call_back(const rclcpp_action::GoalUUID &uuid, std::shared_ptr<const Controller::Goal> goal)
     {
         (void)uuid;
@@ -64,6 +71,7 @@ private:
         return rclcpp_action::CancelResponse::ACCEPT;
     }
 
+    // Προσθήκη goal στην ουρά
     void handle_accepted_callback(const std::shared_ptr<ControllerGoalHandle>goal_handle)
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -72,6 +80,7 @@ private:
         RCLCPP_INFO(node_->get_logger(),"Queue size: %d", (int)goal_queue_.size());
     }
 
+    // Thread που τρέχει συνεχώς και εκτελεί goals ένα-ένα
     void run_goal_queue_thread()
     {
         rclcpp::Rate loop_rate(1000.0);
@@ -100,16 +109,14 @@ private:
 
     void execute_goal(const std::shared_ptr<ControllerGoalHandle>goal_handle)
     {
-        //get request
         std::string color = goal_handle->get_goal()->color;
         auto result = std::make_shared<Controller::Result>();
-        //execute goal
         execute_pick(color, goal_handle);
     }
 
+    // Στέλνει request στο vision server και εκτελεί pick & place
     void execute_pick(std::string color, std::shared_ptr<ControllerGoalHandle> goal_handle)
     {
-        
         if (!optical_client_->wait_for_service(std::chrono::seconds(1))) {
             RCLCPP_ERROR(node_->get_logger(), "Vision Server not available!");
             return;
@@ -129,8 +136,8 @@ private:
                     if (response->success) {
                         this->found_target(response, goal_handle, was_canceled);
 
+                        // canceled() και succeed() καλούνται ΜΟΝΟ εδώ
                         if (was_canceled) {
-                            // ΝΕΟ — πρόσθεσε αυτό
                             auto result = std::make_shared<Controller::Result>();
                             result->msg = "Goal canceled";
                             goal_handle->canceled(result);
@@ -156,6 +163,7 @@ private:
             );
     }
 
+    // Pick & Place sequence με cancel monitor
     void found_target(const std::shared_ptr<PickTarget::Response> target,
                         const std::shared_ptr<ControllerGoalHandle> goal_handle,
                             bool &was_canceled) 
@@ -163,6 +171,7 @@ private:
         was_canceled = false;
         stop_monitor_ = false;
 
+        // Monitor thread - ελέγχει για cancel και σταματάει το ρομπότ mid-motion
         std::thread monitor([this, goal_handle, &was_canceled]() {
             rclcpp::Rate rate(100);
             while (rclcpp::ok() && !stop_monitor_) {
@@ -181,6 +190,7 @@ private:
             double grasp_width = target->grasp_width;
             double cube_height = target->grasp_width;
 
+            // Target pose από vision server
             tf2::Quaternion q;
             q.setRPY(target->roll, target->pitch, target->yaw);
             q = q.normalize();
@@ -193,21 +203,30 @@ private:
             target_pose.pose.orientation.y = q.y();
             target_pose.pose.orientation.z = q.z();
             target_pose.pose.orientation.w = q.w();
+
+            // Pick sequence
             arm_->setStartStateToCurrentState();
             arm_->setPoseTarget(target_pose);
-            plan_and_execute(arm_);
+            plan_and_execute(arm_);                     // πήγαινε πάνω από κύβο
             if(stop_monitor_){ monitor.join(); return;}
-            cartesian_down(cartesian_down_);
+
+            cartesian_down(cartesian_down_);            // κατέβα
             if(stop_monitor_){ monitor.join(); return;}
-            open_gripper(grasp_width);
+
+            open_gripper(grasp_width);                  // πιάσε κύβο
             if(stop_monitor_){ monitor.join(); return;}
+
             rclcpp::sleep_for(std::chrono::seconds(1));
-            if(stop_monitor_){  monitor.join(); return;}
-            cartesian_up(cartesian_up_);
             if(stop_monitor_){ monitor.join(); return;}
-            stack_cubes(grasp_width, cube_height);
+
+            cartesian_up(cartesian_up_);                // ανέβα
+            if(stop_monitor_){ monitor.join(); return;}
+
+            stack_cubes(grasp_width, cube_height);      // place sequence
             if(stop_monitor_){ monitor.join(); return;}
         }
+
+        // Τερμάτισε τον monitor thread
         stop_monitor_ = true;
         monitor.join();
     }
@@ -225,25 +244,26 @@ private:
     }
 
     void cartesian_down(double distance)
-{
-    std::vector<geometry_msgs::msg::Pose> waypoints;
-    moveit_msgs::msg::RobotTrajectory trajectory;
-    
-    geometry_msgs::msg::Pose pose = arm_->getCurrentPose().pose;
-    pose.position.z += distance;
-    waypoints.push_back(pose);
-    
-    double fraction = arm_->computeCartesianPath(waypoints, 0.01, trajectory);
-    if (fraction > 0.95) {
-        arm_->execute(trajectory);
+    {
+        std::vector<geometry_msgs::msg::Pose> waypoints;
+        moveit_msgs::msg::RobotTrajectory trajectory;
+        
+        geometry_msgs::msg::Pose pose = arm_->getCurrentPose().pose;
+        pose.position.z += distance;
+        waypoints.push_back(pose);
+        
+        double fraction = arm_->computeCartesianPath(waypoints, 0.01, trajectory);
+        if (fraction > 0.95) {
+            arm_->execute(trajectory);
+        }
     }
-}
 
-void cartesian_up(double distance)
-{
-    cartesian_down(distance);
-}
+    void cartesian_up(double distance)
+    {
+        cartesian_down(distance);
+    }
 
+    // Place sequence - τοποθέτηση κύβου στο stack
     void stack_cubes(double grasp_width, double cube_height)
     {
         tf2::Quaternion q;
@@ -259,11 +279,11 @@ void cartesian_up(double distance)
         target_pose.pose.orientation.z = q.z();
         target_pose.pose.orientation.w = q.w();
         arm_->setPoseTarget(target_pose);
-        plan_and_execute(arm_);
-        cartesian_down(-cube_height - 0.03);
+        plan_and_execute(arm_);                     // πήγαινε στο stack position
+        cartesian_down(-cube_height - 0.03);        // κατέβα
         rclcpp::sleep_for(std::chrono::seconds(1));
-        open_gripper(grasp_width + 0.1);
-        cartesian_up(cube_height + 0.03);
+        open_gripper(grasp_width + 0.1);            // άσε τον κύβο
+        cartesian_up(cube_height + 0.03);           // ανέβα
     }
 
     void open_gripper(double total_width)
@@ -275,28 +295,13 @@ void cartesian_up(double distance)
 
         gripper_->setJointValueTarget(joint_values);
         plan_and_execute(gripper_);
-
-    }
-
-    bool is_canceled(const std::shared_ptr<ControllerGoalHandle> &goal_handle)
-    {
-        if (goal_handle->is_canceling()) {
-            auto result = std::make_shared<Controller::Result>();
-            result->msg = "Goal canceled";
-            goal_handle->canceled(result);
-            RCLCPP_WARN(node_->get_logger(), "Goal canceled");
-            std::lock_guard<std::mutex> lock(mutex_);
-            busy_ = false;
-            return true;
-        }
-        return false;
     }
 
     double cartesian_down_ = -0.09;
     double cartesian_up_ = 0.09;
-    double stack_height_ = 0.165;
-    bool busy_ = false;
-    std::atomic<bool> stop_monitor_{false};
+    double stack_height_ = 0.165;       // ύψος stack - αυξάνει με κάθε κύβο
+    bool busy_ = false;                 // αν εκτελείται goal
+    std::atomic<bool> stop_monitor_{false}; // flag για cancel mid-motion
     std::shared_ptr<rclcpp::Node> node_;
     std::set<std::string> colors_ = {"blue", "red", "green"};
     std::shared_ptr<MoveGroupInterface> arm_;
@@ -310,9 +315,6 @@ void cartesian_up(double distance)
 };
 
 
-
-
-
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
@@ -321,7 +323,6 @@ int main(int argc, char **argv)
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);
     executor.spin();
-    //rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
 }

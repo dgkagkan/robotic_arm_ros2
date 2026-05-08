@@ -14,7 +14,9 @@ class TeleopKeyActionClientNode : public rclcpp::Node
 public:
     TeleopKeyActionClientNode() : Node("teleop_key_action_client")
     {
+        // Action client - στέλνει goals στον action server
         controller_client_ = rclcpp_action::create_client<Controller>(this, "controller");
+        // Ξεχωριστό thread για keyboard input
         input_thread_ = std::thread(&TeleopKeyActionClientNode::readInput, this);
         RCLCPP_INFO(this->get_logger(), "Teleop started. R/B/G to pick,C to cancel, Q to quit.");
     }
@@ -26,6 +28,7 @@ public:
     }
 
 private:
+    // Διαβάζει ένα πλήκτρο χωρίς να χρειάζεται Enter
     char getKey()
     {
         struct termios oldt, newt;
@@ -39,6 +42,7 @@ private:
         return ch;
     }
 
+    // Κύριο loop - περιμένει πλήκτρο και εκτελεί αντίστοιχη ενέργεια
     void readInput()
     {
         while (rclcpp::ok())
@@ -67,6 +71,7 @@ private:
         }
     }
 
+    // Στέλνει cancel request για το τρέχον goal
     void cancel_goal()
     {
         if (goal_handle_) {
@@ -77,6 +82,7 @@ private:
         }
     }
 
+    // Στέλνει νέο goal με χρώμα
     void send_goal(std::string color)
     {
         if (!controller_client_->wait_for_action_server(std::chrono::seconds(2))) {
@@ -95,6 +101,7 @@ private:
         controller_client_->async_send_goal(*goal, options);
     }
 
+    // Αποθηκεύει το goal handle για χρήση στο cancel
     void goal_response_callback(const ControllerGoalHandle::SharedPtr &goal_handle)
     {
         if (!goal_handle) {
@@ -105,6 +112,7 @@ private:
         }
     }
 
+    // Αποτέλεσμα goal
     void goal_result_callback(const ControllerGoalHandle::WrappedResult &result)
     {
         switch (result.code) {
@@ -141,7 +149,7 @@ private:
     }
 
     std::thread input_thread_;
-    ControllerGoalHandle::SharedPtr goal_handle_;
+    ControllerGoalHandle::SharedPtr goal_handle_;   // τρέχον goal για cancel
     rclcpp_action::Client<Controller>::SharedPtr controller_client_;
 };
 

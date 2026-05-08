@@ -1,8 +1,9 @@
 # 🤖 Robotic Arm ROS2 — Pick & Place with Computer Vision
 
 A custom 6-DOF robotic arm with a dual-prismatic gripper, capable of autonomous pick-and-place operations using color-based object detection.
+## Demo Video
 
-[![Demo Video](https://img.shields.io/badge/▶_Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://youtu.be/iawmaIgp83U?si=qB1XLPUv3vmfE5jV)
+[![Watch the demo](https://img.youtube.com/vi/6f2BSKOASPY/maxresdefault.jpg)](https://youtu.be/6f2BSKOASPY)
 
 ---
 

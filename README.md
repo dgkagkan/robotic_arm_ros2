@@ -27,6 +27,7 @@ The robot identifies a target cube by color, plans a path to it, picks it up, an
 - Mid-motion cancel — press `C` to stop the robot immediately during any movement
 - Cartesian path planning for approach/retreat
 - Automatic cube stacking with incremental height
+- Depth camera integration for real-time Z height detection of cubes
 
 ---
 
@@ -197,6 +198,13 @@ bool success
 
 ---
 
+## Troubleshooting
+
+- **Robot not moving** — Make sure MoveIt2 is fully loaded before starting the action server
+- **Cubes not detected** — Check `/camera/debug_image` with rqt_image_view
+- **Wrong cube position** — Verify camera intrinsics match your Gazebo camera config
+
+---
 ## License
 
 This project is open source.

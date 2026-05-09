@@ -227,7 +227,7 @@
       <self_collide>false</self_collide>
     </model>
     <model name='box_1'>
-      <pose>0.4 -1.0 1.0 0 0 0</pose>
+      <pose>0.4 -1.0 1.35 0 0 0</pose>
        <link name='box_link'>
         <inertial>
           <inertia>
@@ -275,6 +275,63 @@
             <ambient>0 0 1 1</ambient>
             <diffuse>0 0 1 1</diffuse>
             <specular>0.1 0.1 0.1 0.1</specular>
+          </material>
+        </visual>
+        <pose>0 0 0 0 0 0</pose>
+        <enable_wind>false</enable_wind>
+      </link>
+      <static>false</static>
+      <self_collide>false</self_collide>
+    </model>
+    <model name='big_box'>
+      <pose>0.4 -1.0 1.15 0 0 0</pose>
+       <link name='box_link'>
+        <inertial>
+          <inertia>
+            <ixx>0.00003</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.00003</iyy>
+            <iyz>0</iyz>
+            <izz>0.00003</izz>
+          </inertia>
+          <mass>5.0</mass>
+          <pose>0 0 0 0 0 0</pose>
+        </inertial>
+        <collision name='box_collision'>
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.2</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu1>10.2</mu1>
+                <mu2>10.2</mu2>
+              </ode>
+            </friction>
+            <bounce/>
+            <contact>
+              <ode>
+                <kp>1000000.0</kp>
+                <kd>1.0</kd>
+                <max_vel>0.1</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name='box_visual'>
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+            <specular>0 0 0 1</specular>
           </material>
         </visual>
         <pose>0 0 0 0 0 0</pose>

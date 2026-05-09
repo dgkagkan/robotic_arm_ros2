@@ -15,19 +15,18 @@
             <origin xyz="0 0 0" rpy="0 0 0"/>
         </collision>
         <xacro:box_inertia m="0.1" x="0.1" y="0.1" z="0.05"
-                           o_xyz="0 0 0" o_rpy="0 0 0"/>
+            o_xyz="0 0 0" o_rpy="0 0 0"/>
     </link>
 
     <link name="virtual_camera"/>
-
-    <joint name="camera_link_optical" type="fixed" >
+    <joint name="camera_link_optical" type="fixed">
         <parent link="camera_link"/>
         <child link="virtual_camera"/>
         <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
     </joint>
 
     <gazebo reference="camera_link">
-        <sensor name="camera" type="camera">
+        <sensor name="depth_camera" type="rgbd_camera">
             <camera>
                 <horizontal_fov>1.3962634</horizontal_fov>
                 <image>
@@ -50,8 +49,7 @@
             <always_on>1</always_on>
             <update_rate>20</update_rate>
             <visualize>true</visualize>
-            <topic>camera/image_raw</topic>
+            <topic>camera</topic>
         </sensor>
     </gazebo>
-
-</robot> 
+</robot>

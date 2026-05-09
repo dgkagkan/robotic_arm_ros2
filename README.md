@@ -129,25 +129,26 @@ ros2 run rqt_image_view rqt_image_view /camera/debug_image
 | `C` | Cancel current goal (stops robot mid-motion) |
 | `Q` | Quit teleop |
 
----
 ## Architecture
+
+<pre>
 ┌──────────┐    goal     ┌──────────────────┐   service   ┌───────────────┐
 │  Teleop  │────────────▶│  Action Server   │────────────▶│ Vision Server │
 │ (Client) │◀────────────│  (Pick & Place)  │◀────────────│   (OpenCV)    │
 │          │  feedback/  │                  │  cube pose  │               │
 └──────────┘   result    │    MoveIt2       │             │  /camera/     │
-│    arm_          │             │  image        │
-│    gripper_      │             │  depth_image  │
-└────────┬─────────┘             └───────────────┘
-│ joint trajectory
-▼
-┌──────────────────┐
-│   Gazebo Sim     │
-│  robotic arm     │
-│  + camera        │
-│  + cubes         │
-└──────────────────┘
----
+                         │    arm_          │             │  image        │
+                         │    gripper_      │             │  depth_image  │
+                         └────────┬─────────┘             └───────────────┘
+                                  │ joint trajectory
+                                  ▼
+                         ┌──────────────────┐
+                         │   Gazebo Sim     │
+                         │  robotic arm     │
+                         │  + camera        │
+                         │  + cubes         │
+                         └──────────────────┘
+</pre>
 
 ## Packages
 

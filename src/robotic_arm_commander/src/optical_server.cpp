@@ -45,7 +45,7 @@ public:
         optical_server_ = this->create_service<PickTarget>(
             "pick_target",
             std::bind(&PickTargetServerNode::callbackPickTarget, this, _1, _2),
-            rmw_qos_profile_services_default,
+            rclcpp::QoS(10),
             callback_group_
         );
     }
@@ -106,7 +106,6 @@ private:
                 int cx = bbox.x + (bbox.width / 2);
                 int cy = bbox.y + (bbox.height / 2);
                 cv::RotatedRect rotated_bbox = cv::minAreaRect(contour);
-                cv::Point2f center = rotated_bbox.center;
                 float angle = rotated_bbox.angle;
 
                 // Yaw από rotated bounding box

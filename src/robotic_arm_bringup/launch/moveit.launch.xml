@@ -31,8 +31,6 @@
           output="screen"/>
     
     <include file="$(find-pkg-share robotic_arm_moveit_config)/launch/move_group.launch.py"/>
-
-    <node pkg="robotic_arm_commander" exec="commander"/>
         
     <node pkg="rviz2" exec="rviz2" output="screen" 
         args="-d $(var rviz_path)"/>
